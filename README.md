@@ -1,4 +1,4 @@
 gmap
 ====
 
-just a map
+just a map!
