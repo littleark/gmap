@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>GDP around the World</title>
+
+	<link rel="stylesheet" href="css/map.css">
+	
+	<!--<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
+	<script src="http://d3js.org/topojson.v1.min.js"></script>!-->
+	<script src="js/vendors/d3.v3.min.js"></script>
+	<script src="js/vendors/d3.geo.projection.v0.min.js"></script>
+	<script src="js/vendors/topojson.v1.min.js"></script>
+
+</head>
+<body>
+	<div id="wrapper">
+		<h1>Gross domestic product 2013</h1>
+		<div id="map">
+			<div id="tooltip" class="hidden">
+				<div>
+					<h2></h2>
+					<h3>GDP: <span></span></h3>
+				</div>
+			</div>
+		</div>
+		<div id="table">
+			<table class="fixed_headers">
+				<thead>
+					<tr>
+						<th class="col-ranking">#</th>
+						<th class="col-country">Country</th>
+						<th class="col-gdp">GDP 2013</th>
+					</tr>
+				</thead>
+				<tbody>
+					
+				</tbody>
+			</table>
+			<p class="notes">a. Includes Former Spanish Sahara.<br/>
+			b. Excludes South Sudan<br/>
+			c. Covers mainland Tanzania only.<br/>
+			d. Data are for the area controlled by the government of the Republic of Cyprus.<br/>
+			e. Excludes Abkhazia and South Ossetia.<br/>
+			f. Excludes Transnistria.</p>
+		</div>
+	</div>
+	<script>
+		/*
+		MISSING Object {alpha3: "KSV", ranking: "146", economy: "Kosovo", usd: 6960, note: ""…} (index):67
+		MISSING Object {alpha3: "CHI", ranking: "", economy: "Channel Islands", usd: NaN, note: ""…} (index):67
+		*/
+
+		// Fixes between ISO-3166-alpha-3 and GDP.csv file
+		var ALPHA3_TYPO={
+			"ROM":"ROU",
+			"ZAR":"COD",
+			"KSV":"KSV",
+			"TMP":"TLS",
+			"ADO":"AND",
+			"CHI":"CHI",
+			"IMY":"IMN",
+			"WBG":"PSE"
+		}
+
+
+
+		var WIDTH = 800,
+    		HEIGHT = 400;
+
+    	// Using mercator projection, but sliding vertically to hide antartica
+		var projection = d3.geo.mercator()
+    						.translate([0, 50])
+    						.scale(WIDTH / 2 / Math.PI);
+
+    	var path = d3.geo.path()
+    					.projection(projection);
+
+    	var svg = d3.select("#map").append("svg")
+    					.attr("width", WIDTH)
+    					.attr("height", HEIGHT)
+  						.append("g")
+    						.attr("transform", "translate(" + WIDTH / 2 + "," + HEIGHT / 2 + ")");
+
+
+    	
+
+    	var country_names={};
+
+    	// Loading ISO-3166 codes
+    	d3.csv("data/countrynames.csv",function(country){
+    		
+    		country["country-code"]=+country["country-code"];
+
+    		return country;
+
+    	},function(countries){
+    		
+    		// Creating a support array that maps from ISO-3166-alpha-3 to ISO-3166-num-2
+    		countries.forEach(function(c){
+    			country_names[c["alpha-3"]]=c["country-code"];
+    		});
+
+    		// Loading GDP data
+    		d3.csv("data/GDP.csv",function(country){
+    			
+    			country["usd"]=+country["usd"];
+
+    			//mapping country ID in GDP.csv to ISO-3166-alpha-3 for the map
+    			country["num2"]=country_names[ALPHA3_TYPO[country["alpha3"]]||country["alpha3"]];
+
+    			if(!country_names[ALPHA3_TYPO[country["alpha3"]]||country["alpha3"]]) {
+    				console.warn("MISSING",country)
+    			}
+
+    			return country;
+
+    		},function(gdp){
+
+
+    			var map=new Map({
+    				topojson:"data/world-50m.json",
+    				data:gdp,
+    				container:"#map"
+    			})
+
+    			var table=new Table({
+    				data:gdp,
+    				container:"#table",
+    				filter:function(d){
+						return d.economy && (d.ranking || !d.usd);
+					}
+    			})
+
+
+    		});
+
+    	})
+
+		// USD Format
+    	var usdFormat=function(d){
+			if(!d) {
+				return "Not Available";
+			}
+			return "$"+d3.format(",.0")(d)
+		};
+
+		// This object creates a fixed headers scrollable table
+		function Table(options) {
+
+			var table=d3.select(options.container+" table");
+
+			var tr=table.select("tbody")
+				.selectAll("tr")
+					.data(options.data.filter(options.filter))
+					.enter()
+					.append("tr");
+
+			tr.append("td")
+				.text(function(d){
+					return d.ranking;
+				});
+
+			tr.append("td")
+				.html(function(d){
+					if(d.note) {
+						return d.economy+" <span>("+d.note+")</span>";
+					}
+					return d.economy;
+				});
+
+			tr.append("td")
+				.text(function(d){
+					return usdFormat(d.usd);
+				})
+
+		}
+
+		// This object creates a map loading a topojson file
+    	function Map(options) {
+
+    		// This variable contains the DOM reference for the tooltip, so that it is
+    		// accessible without looking everytime with a select
+    		var tooltip={
+    			el:d3.select(options.container+" #tooltip"),
+    			country:d3.select(options.container+" #tooltip h2"),
+    			gdp:d3.select(options.container+" #tooltip h3 span")
+    		};
+
+
+    		var map_g=svg.append("g")
+    					.attr("id",options.container);
+
+    		
+    		// Loading the topojson file
+    		d3.json(options.topojson, function(error, world) {
+	    		
+    			// Creating the lands and adding the mouseover event
+			  	map_g.selectAll("path.land")
+			    	.data(topojson.feature(world, world.objects.countries).features)
+			    	.enter()
+			    	.append("path")
+				    	.attr("class", "land")
+				    	.attr("d", path)
+					    	.on("mouseover",function(d){
+					    		
+					    		// THIS IS EXTREMELY BAD!!!
+					    		// I should crete a lookup table, not get through the whole data everytime
+					    		var info=options.data.filter(function(c){
+					    			return c["num2"]==d["id"]
+					    		})[0];
+
+					    		
+					    		showTooltip(info,path.centroid(d))
+					    	})
+					    	.on("mouseout",function(d){
+					    		hideTooltip();
+					    	});
+				
+				// Creating the borders
+			  	map_g.append("path")
+			      	.datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
+			      	.attr("class", "boundary")
+			      	.attr("d", path);
+			    
+			});
+
+    		// This function shows the tooltip at the requested coordinates, showing the name of the country and gdp
+			function showTooltip(info,coordinates) {
+
+				if(typeof info =="undefined") {
+					tooltip.el.classed("hidden",true);
+					return;
+				}
+
+				var x=WIDTH/2 + coordinates[0],
+					y=HEIGHT/2 + coordinates[1];
+				
+				//super fast fix for countries at the very north of the map
+				if(y<0+40) {
+					y=60;
+				}
+
+				tooltip.country
+						.text(info["economy"]);
+
+				tooltip.gdp
+						.text(usdFormat(info["usd"]));
+
+				tooltip.el
+					.classed("hidden",false)
+					.style({
+						top:y+"px",
+						left:x+"px"
+					})
+
+			}
+
+			function hideTooltip() {
+				tooltip.el.classed("hidden",true);
+			}
+    	}
+    	
+
+
+
+	</script>
+</body>
+</html>
