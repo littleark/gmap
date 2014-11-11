@@ -38,7 +38,10 @@
 					
 				</tbody>
 			</table>
-			<p class="notes">a. Includes Former Spanish Sahara.<br/>
+			<p class="notes">
+			Note: Rankings include only those economies with confirmed GDP estimates.<br/><br/>
+			Further notes:<br/>
+			a. Includes Former Spanish Sahara.<br/>
 			b. Excludes South Sudan<br/>
 			c. Covers mainland Tanzania only.<br/>
 			d. Data are for the area controlled by the government of the Republic of Cyprus.<br/>
@@ -188,6 +191,11 @@
     			gdp:d3.select(options.container+" #tooltip h3 span")
     		};
 
+    		//lookup table for tooltip interactions
+    		var lookup_table={};
+    		options.data.forEach(function(d){
+    			lookup_table[d["num2"]]=d;
+    		})
 
     		var map_g=svg.append("g")
     					.attr("id",options.container);
@@ -204,15 +212,7 @@
 				    	.attr("class", "land")
 				    	.attr("d", path)
 					    	.on("mouseover",function(d){
-					    		
-					    		// THIS IS EXTREMELY BAD!!!
-					    		// I should crete a lookup table, not get through the whole data everytime
-					    		var info=options.data.filter(function(c){
-					    			return c["num2"]==d["id"]
-					    		})[0];
-
-					    		
-					    		showTooltip(info,path.centroid(d))
+					    		showTooltip(lookup_table[d["id"]],path.centroid(d))
 					    	})
 					    	.on("mouseout",function(d){
 					    		hideTooltip();
