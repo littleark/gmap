@@ -72,13 +72,7 @@
 		var WIDTH = 800,
     		HEIGHT = 400;
 
-    	// Using mercator projection, but sliding vertically to hide antartica
-		var projection = d3.geo.mercator()
-    						.translate([0, 50])
-    						.scale(WIDTH / 2 / Math.PI);
-
-    	var path = d3.geo.path()
-    					.projection(projection);
+    	
 
     	var svg = d3.select("#map").append("svg")
     					.attr("width", WIDTH)
@@ -182,6 +176,14 @@
 
 		// This object creates a map loading a topojson file
     	function Map(options) {
+
+    		// Using mercator projection, but sliding vertically to hide antartica
+			var projection = d3.geo.mercator()
+	    						.translate([0, 50])
+	    						.scale(WIDTH / 2 / Math.PI);
+	    	
+	    	var path = d3.geo.path()
+	    					.projection(projection);
 
     		// This variable contains the DOM reference for the tooltip, so that it is
     		// accessible without looking everytime with a select
